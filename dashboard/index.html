@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Token Launch Radar — pre-token protocols ranked by implied launch value</title>
+<title>Buggy Radar — the Token Launch Radar: pre-token protocols ranked by implied launch value</title>
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
@@ -11,8 +11,8 @@
   <div class="brand">
     <span class="pulse" aria-hidden="true"></span>
     <div>
-      <h1>Token Launch Radar</h1>
-      <p class="sub">Every protocol that still records no token, ranked by what its launch would be worth</p>
+      <h1>Buggy Radar</h1>
+      <p class="sub">The Token Launch Radar — every protocol that still records no token, ranked by what its launch would be worth</p>
     </div>
   </div>
   <div class="meta" id="meta"></div>
@@ -29,6 +29,31 @@
 <main>
   <section id="view-board">
     <div class="formula" id="formula"></div>
+    <div class="chartpanel" id="chartpanel">
+      <div class="chartmain">
+        <div class="charthead">
+          <h2>Value against TVL</h2>
+          <p class="chartnote" id="chartnote"></p>
+        </div>
+        <div id="scatter"></div>
+        <div class="legend">
+          <span><i class="sw comp"></i>tokenised comparable — its real market cap</span>
+          <span><i class="sw board"></i>board protocol — the model's implied value</span>
+          <span><i class="sw line"></i>median comparable ratio</span>
+          <span><i class="sw bandsw"></i>25th–75th percentile band</span>
+        </div>
+      </div>
+      <aside class="howpriced">
+        <h2>How a row is priced</h2>
+        <ol>
+          <li><strong>Group ratio.</strong> Protocols are grouped by what they do. Each group's tokenised launches give a market-cap-to-TVL ratio; the board uses the group's median, shrunk toward the market-wide median and capped at the richest ratio the snapshot records at that size.</li>
+          <li><strong>Growth.</strong> The seven-day TVL change scales the value — a protocol gathering TVL into a launch is worth more than one leaking it. The change is clamped, so one wild week cannot carry a rank.</li>
+          <li><strong>Vintage.</strong> Time tracked with no token recorded scales the value from 0.8× to 1.2×: a launch is worth more when the protocol has already run for years without one.</li>
+          <li><strong>The band.</strong> Every value is drawn with the same formula run at its group's 25th and 75th percentile ratios — the spread of what comparable launches actually captured, shown beside each value and shaded on the chart.</li>
+        </ol>
+        <p class="chartfoot">The full method, with every constant, is on the Method tab; open any row for its own workings.</p>
+      </aside>
+    </div>
     <div class="presets" id="presets">
       <span class="plabel">Farm presets:</span>
       <button type="button" data-preset="">All protocols</button>
@@ -138,6 +163,7 @@
       <p><strong>Conviction tiers.</strong> The board also grades each protocol's record, not its value: <strong>Proven scale</strong> — at least $100M of TVL and at least a year tracked with no token; <strong>Building</strong> — at least $25M and at least six months; <strong>Early</strong> — everything else, including any protocol whose age the record omits. The tier filters and sorts nothing by itself; it is the at-a-glance answer to "how much record stands behind this rank?"</p>
       <p id="worked"></p>
       <h2>Where the opportunity sits, by group</h2>
+      <div id="groupbars"></div>
       <div class="tablewrap">
         <table id="opptable">
           <thead><tr><th>Group</th><th class="num">Ranked</th><th class="num">Their TVL</th><th class="num">Aggregate implied</th><th>Richest single launch</th></tr></thead>

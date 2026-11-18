@@ -1,4 +1,4 @@
-// Token Launch Radar — the page's whole logic. Everything it draws comes from window.RADAR,
+// Buggy Radar — the Token Launch Radar page's whole logic. Everything it draws comes from window.RADAR,
 // the data file the program writes beside this page: the ranked board, the live tokens, the
 // set-asides, the group ratios and the model constants. No fetch, no network, no state that a
 // reload would change. The URL hash carries the view and the filters (#view=live, #q=lend,
@@ -53,7 +53,7 @@ function sizeCap(tvl) {
 
 const state = {
   view: 'board', q: '', cat: '', chain: '', band: '', growth: '', agef: '', src: '', tier: '', preset: '',
-  sortKey: 'rank', sortAsc: true, slug: null, cmpA: null, cmpB: null,
+  sortKey: 'rank', sortAsc: true, slug: null, cmpA: null, cmpB: null, chart: false,
 };
 
 /** A protocol's conviction tier, from its record alone: the scale it holds and the time it has held it. */
@@ -86,6 +86,7 @@ function readHash() {
     state.sortAsc = SORT_ASC_DEFAULT[state.sortKey];
   }
   if (h.get('p')) state.slug = h.get('p');
+  if (h.has('chart')) state.chart = true;
 }
 
 // ------------------------------------------------------------ header and formula strip
@@ -242,6 +243,73 @@ function renderBoard() {
       );
     })
     .join('');
+}
+
+// ------------------------------------------------------------ the model chart
+
+/** The comparables this page ships, merged: the largest tokenised protocols by market cap and
+ *  each group's richest examples — every point the scatter can honestly plot. */
+function comparablePoints() {
+  const seen = new Map();
+  const add = (name, tvl, mcap) => {
+    if (!(tvl > 0) || !(mcap > 0)) return;
+    const key = `${name}|${tvl}`;
+    if (!seen.has(key)) seen.set(key, { name, tvl_usd: tvl, mcap_usd: mcap });
+  };
+  for (const p of R.live) add(p.name, p.tvl_usd, p.mcap_usd);
+  for (const list of Object.values(R.comparables)) for (const c of list) add(c.name, c.tvl_usd, c.mcap_usd);
+  return [...seen.values()];
+}
+
+const pctile = (sorted, p) => {
+  const i = (sorted.length - 1) * p;
+  const lo = Math.floor(i);
+  return sorted[lo] + (sorted[Math.min(lo + 1, sorted.length - 1)] - sorted[lo]) * (i - lo);
+};
+
+/** The scatter: the comparables' real market caps against TVL on log axes, the median comparable
+ *  ratio drawn as a line inside its 25th–75th percentile band, and the board's implied values
+ *  over the same axes — the model, seen against the evidence it is read from. */
+function renderScatter() {
+  const comps = comparablePoints();
+  const ratios = comps
+    .map((c) => Math.min(R.model.ratio_clip_high, Math.max(R.model.ratio_clip_low, c.mcap_usd / c.tvl_usd)))
+    .sort((a, b) => a - b);
+  const med = pctile(ratios, 0.5);
+  const p25 = pctile(ratios, 0.25);
+  const p75 = pctile(ratios, 0.75);
+  const W = 660, H = 318, L = 64, B = 30, T = 10, Rt = 12;
+  const xs = [...comps.map((c) => c.tvl_usd), ...rows.map((r) => r.tvl_usd)];
+  const ys = [...comps.map((c) => c.mcap_usd), ...rows.map((r) => r.implied_value_usd)];
+  const x0 = Math.log10(Math.min(...xs));
+  const x1 = Math.log10(Math.max(...xs));
+  const y0 = Math.log10(Math.min(...ys));
+  const y1 = Math.log10(Math.max(...ys));
+  const X = (v) => L + ((Math.log10(v) - x0) / (x1 - x0)) * (W - L - Rt);
+  const Y = (v) => H - B - ((Math.log10(v) - y0) / (y1 - y0)) * (H - B - T);
+  const Yc = (v) => Math.max(T, Math.min(H - B, Y(v)));
+  let grid = '';
+  for (let e = Math.ceil(x0); e <= x1; e++)
+    grid += `<line class="grid" x1="${X(10 ** e)}" y1="${T}" x2="${X(10 ** e)}" y2="${H - B}"/><text class="axislab" x="${X(10 ** e) + 3}" y="${H - B + 16}">${money(10 ** e)}</text>`;
+  for (let e = Math.ceil(y0); e <= y1; e++)
+    grid += `<line class="grid" x1="${L}" y1="${Y(10 ** e)}" x2="${W - Rt}" y2="${Y(10 ** e)}"/><text class="axislab" x="${L - 5}" y="${Y(10 ** e) + 3}" text-anchor="end">${money(10 ** e)}</text>`;
+  const xa = 10 ** x0;
+  const xb = 10 ** x1;
+  const band =
+    `<polygon class="bandpoly" points="${X(xa)},${Yc(xa * p75)} ${X(xb)},${Yc(xb * p75)} ${X(xb)},${Yc(xb * p25)} ${X(xa)},${Yc(xa * p25)}"/>` +
+    `<line class="medline" x1="${X(xa)}" y1="${Yc(xa * med)}" x2="${X(xb)}" y2="${Yc(xb * med)}"/>`;
+  const dots = comps
+    .map((c) => `<circle class="compdot" cx="${X(c.tvl_usd).toFixed(1)}" cy="${Y(c.mcap_usd).toFixed(1)}" r="3.2"><title>${esc(c.name)} — TVL ${money(c.tvl_usd)}, cap ${money(c.mcap_usd)}</title></circle>`)
+    .join('');
+  const marks = rows
+    .map((r) => `<circle class="boarddot" cx="${X(r.tvl_usd).toFixed(1)}" cy="${Y(r.implied_value_usd).toFixed(1)}" r="2.6"><title>${esc(r.name)} — TVL ${money(r.tvl_usd)}, implied ${money(r.implied_value_usd)}</title></circle>`)
+    .join('');
+  $('#scatter').innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Scatter of value against TVL">${grid}${band}${dots}${marks}` +
+    `<text class="axistitle" x="${L}" y="${H - 2}">TVL →</text><text class="axistitle" x="2" y="${T + 8}">value →</text></svg>`;
+  $('#chartnote').textContent =
+    `${comps.length} tokenised comparables plotted — the largest by market cap and each group's richest examples, every one this page ships. ` +
+    `Their median cap-to-TVL ratio, clipped as the model clips it, is ${ratioText(med)}; the board's ${rows.length} implied values sit over the same axes.`;
 }
 
 // ------------------------------------------------------------ detail view
@@ -422,6 +490,16 @@ function renderMethod() {
         `<td class="num">${money(s.implied)}</td><td>${esc(s.top.name)} (${money(s.top.implied_value_usd)})</td></tr>`,
     )
     .join('');
+  const maxImplied = Math.max(...[...byGroup.values()].map((s) => s.implied));
+  $('#groupbars').innerHTML = [...byGroup.values()]
+    .sort((x, y) => y.implied - x.implied)
+    .map(
+      (s) =>
+        `<div class="gbar"><span class="gname">${esc(s.top.group)}</span>` +
+        `<span class="gtrack"><span class="gfill" style="width:${((100 * s.implied) / maxImplied).toFixed(1)}%"></span></span>` +
+        `<span class="gval">${money(s.implied)} across ${s.n}</span></div>`,
+    )
+    .join('');
   const top = rows[0];
   const stat = R.groups.find((g) => g.group === top.group);
   $('#worked').innerHTML =
@@ -457,11 +535,16 @@ function init() {
   readHash();
   renderMeta();
   renderFormula();
+  renderScatter();
   fillSelects();
   renderBoard();
   fillCompare();
   show(['board', 'compare', 'live', 'aside', 'method'].includes(state.view) ? state.view : 'board');
   if (state.slug) openDetail(state.slug);
+  if (state.chart) {
+    const el = $('#chartpanel');
+    if (el) el.scrollIntoView();
+  }
   document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('click', () => show(b.dataset.view)));
   const rerender = () => {
     state.q = $('#q').value;

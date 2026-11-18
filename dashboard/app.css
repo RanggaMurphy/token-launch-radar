@@ -179,6 +179,43 @@ td.num, th.num { text-align: right; }
 .risks li { margin-bottom: 5px; }
 .steps { margin: 0; padding-left: 20px; color: #c3cedb; font-size: 14.5px; }
 .steps li { margin-bottom: 9px; }
+.chartpanel {
+  display: flex; gap: 18px; margin: 14px 0 0; padding: 16px 18px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+}
+.chartmain { flex: 1 1 auto; min-width: 0; }
+.charthead { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+.charthead h2, .howpriced h2 { font-size: 16px; margin: 0 0 6px; }
+.chartnote { color: var(--muted); font-size: 12.5px; margin: 0 0 4px; max-width: 560px; }
+#scatter svg { display: block; width: 100%; height: auto; }
+#scatter .grid { stroke: rgba(34, 48, 65, .7); stroke-width: 1; }
+#scatter .axislab { fill: var(--faint); font-family: var(--mono); font-size: 10.5px; }
+#scatter .axistitle { fill: var(--muted); font-size: 11.5px; }
+#scatter .bandpoly { fill: rgba(74, 222, 128, .10); }
+#scatter .medline { stroke: var(--amber); stroke-width: 1.6; stroke-dasharray: 6 4; }
+#scatter .compdot { fill: #6ea8d8; opacity: .72; }
+#scatter .boarddot { fill: var(--accent); opacity: .88; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; color: var(--muted); font-size: 12.5px; }
+.legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+.legend .sw.comp { background: #6ea8d8; }
+.legend .sw.board { background: var(--accent); }
+.legend .sw.line { background: none; border-top: 2px dashed var(--amber); border-radius: 0; height: 0; vertical-align: 3px; }
+.legend .sw.bandsw { background: rgba(74, 222, 128, .25); border-radius: 3px; }
+.howpriced { flex: 0 0 318px; border-left: 1px solid var(--line); padding-left: 18px; }
+.howpriced ol { margin: 0; padding-left: 18px; color: #c3cedb; font-size: 13.5px; }
+.howpriced li { margin-bottom: 9px; }
+.howpriced strong { color: var(--text); }
+.chartfoot { color: var(--faint); font-size: 12.5px; margin: 4px 0 0; }
+#groupbars { margin: 4px 0 12px; }
+.gbar { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; font-size: 13.5px; }
+.gbar .gname { flex: 0 0 168px; color: var(--muted); }
+.gbar .gtrack { flex: 1 1 auto; height: 14px; background: #1a2330; border-radius: 4px; position: relative; }
+.gbar .gfill { position: absolute; top: 0; left: 0; height: 14px; background: #2c5c40; border-radius: 4px; }
+.gbar .gval { font-family: var(--mono); color: var(--text); white-space: nowrap; }
+@media (max-width: 900px) {
+  .chartpanel { flex-direction: column; }
+  .howpriced { flex: none; border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 12px; }
+}
 @media (max-width: 900px) {
   body { padding: 0 14px 40px; }
   .bandcell { min-width: 190px; }
