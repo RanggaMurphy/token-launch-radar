@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Launch Radar — pre-token protocols ranked by implied launch value</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="pulse" aria-hidden="true"></span>
+    <div>
+      <h1>Token Launch Radar</h1>
+      <p class="sub">Every protocol that still records no token, ranked by what its launch would be worth</p>
+    </div>
+  </div>
+  <div class="meta" id="meta"></div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button type="button" data-view="board" class="on">The board</button>
+  <button type="button" data-view="compare">Compare</button>
+  <button type="button" data-view="live">Live tokens</button>
+  <button type="button" data-view="aside">Set aside</button>
+  <button type="button" data-view="method">Method</button>
+</nav>
+
+<main>
+  <section id="view-board">
+    <div class="formula" id="formula"></div>
+    <div class="presets" id="presets">
+      <span class="plabel">Farm presets:</span>
+      <button type="button" data-preset="">All protocols</button>
+      <button type="button" data-preset="cap100">Best farms under $100</button>
+      <button type="button" data-preset="cap150">Best farms under $150</button>
+      <button type="button" data-preset="short">Short hold (≤ 30 days)</button>
+      <button type="button" data-preset="core">Proven scale only</button>
+    </div>
+    <div class="controls">
+      <input id="q" type="search" placeholder="Search name, category or chain" autocomplete="off">
+      <select id="cat" aria-label="Category"></select>
+      <select id="chain" aria-label="Chain"></select>
+      <select id="band" aria-label="TVL band">
+        <option value="">All TVL</option>
+        <option value="1000000000">TVL $1B and up</option>
+        <option value="250000000">TVL $250M and up</option>
+        <option value="50000000">TVL $50M and up</option>
+        <option value="10000000">TVL $10M and up</option>
+      </select>
+      <select id="growth" aria-label="Seven-day momentum">
+        <option value="">Any 7d momentum</option>
+        <option value="up">Growing (7d &gt; 0)</option>
+        <option value="down">Shrinking (7d &lt; 0)</option>
+        <option value="hot">Strong growth (≥ +10%)</option>
+        <option value="cold">Falling fast (≤ −10%)</option>
+        <option value="na">Change not reported</option>
+      </select>
+      <select id="agef" aria-label="Protocol age">
+        <option value="">Any age</option>
+        <option value="young">Under 6 months old</option>
+        <option value="mid">6–24 months old</option>
+        <option value="old">Over 2 years old</option>
+        <option value="na">Age unrecorded</option>
+      </select>
+      <select id="src" aria-label="Source">
+        <option value="">Watchlist + radar finds</option>
+        <option value="wl">Watchlist only (40)</option>
+        <option value="finds">Radar finds only</option>
+      </select>
+      <select id="tier" aria-label="Conviction tier">
+        <option value="">Any conviction</option>
+        <option value="core">Proven scale</option>
+        <option value="building">Building</option>
+        <option value="early">Early</option>
+      </select>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="tablewrap">
+      <table id="board">
+        <thead><tr>
+          <th class="num sortable" data-sort="rank"># <span class="arr"></span></th>
+          <th class="sortable" data-sort="name">Protocol <span class="arr"></span></th>
+          <th class="num sortable" data-sort="tvl">TVL <span class="arr"></span></th>
+          <th class="num sortable" data-sort="change">7d <span class="arr"></span></th>
+          <th class="num sortable" data-sort="age">Age <span class="arr"></span></th>
+          <th class="num sortable" data-sort="ratio">Ratio <span class="arr"></span></th>
+          <th class="sortable" data-sort="implied">Implied launch value, with its band <span class="arr"></span></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="foot">Implied values are the model's estimates, computed from the snapshot's own figures — not prices, and no protocol here has promised a token. Select any row for its score breakdown, its comparable launches, its risks and its farm plan.</p>
+  </section>
+
+  <section id="view-compare" hidden>
+    <p class="lede">Two protocols, one model: pick any pair and read them side by side — the same factors, the same formula, the verdict the figures support.</p>
+    <div class="controls">
+      <select id="cmpa" aria-label="First protocol"></select>
+      <span class="vs">vs</span>
+      <select id="cmpb" aria-label="Second protocol"></select>
+    </div>
+    <div id="cmpout"></div>
+  </section>
+
+  <section id="view-live" hidden>
+    <p class="lede">These protocols already record a token. They are not ranked — they are the evidence: the board's ratios are read off what launches like them actually trade at. The largest by market cap:</p>
+    <div class="tablewrap">
+      <table id="livetable">
+        <thead><tr><th>Protocol</th><th>Group</th><th class="num">TVL</th><th class="num">Market cap</th><th class="num">Cap / TVL</th><th class="num">7d</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="view-aside" hidden>
+    <p class="lede" id="asidelede"></p>
+    <div class="tablewrap">
+      <table id="asidetable">
+        <thead><tr><th>Protocol</th><th>Category</th><th class="num">TVL</th><th>Why it is set aside</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="foot">The full rule is on the Method tab. A protocol that records a token is never in this list — it sits in Live tokens, where its market value prices the board.</p>
+  </section>
+
+  <section id="view-method" hidden>
+    <div class="prose">
+      <h2>What the board is</h2>
+      <p>The snapshot is DefiLlama's protocol list as of the date in the header: every protocol with at least the floor of TVL the file states, each with ten fields — name, category, chains, TVL, seven-day TVL change, market cap, the date tracking began, and the CoinGecko id and symbol of its token, either of which is null when the record names none.</p>
+      <h2>Who gets ranked</h2>
+      <p>A protocol is ranked when it <strong>records no token</strong> — both its CoinGecko id and its symbol are null — and it is <strong>not a wrapped, staked or bridged product of a protocol whose token already trades</strong>. The product test uses every part of the rule the snapshot's fields can check: the category is not Bridge, Canonical Bridge, Liquid Staking, Liquid Restaking, Restaked BTC or CEX; the name ends in no version marker; the name carries no whole word <em>wrapped</em>, <em>staked</em> or <em>staking</em>; and the name does not begin with an exchange's name. The field guide's own test also reads a parent-protocol field the snapshot does not carry, so a sub-product identifiable only by that link cannot be screened from this file; the Method says so rather than pretend otherwise. The snapshot's watchlist is covered in full — it is the floor of the board, never its ceiling.</p>
+      <h2>What a launch would be worth</h2>
+      <p><strong>Implied value = TVL × group ratio × growth × vintage.</strong></p>
+      <p><strong>Group ratio.</strong> Protocols are grouped by what they do (the table below). For each group, take every tokenised protocol in the snapshot with a market cap, compute its market-cap-to-TVL ratio, clip it to [0.01, 3], and take the median — then shrink it toward the market-wide median by the group's sample size, so a group priced off five launches borrows the market's evidence: ratio = (n × group median + 8 × global median) / (n + 8). Finally the ratio is capped at the richest the snapshot records at that size: no tokenised protocol with $250M or more of TVL trades above 0.45× TVL, and none with $50M or more trades above 1.05×.</p>
+      <p><strong>Growth.</strong> 1 + clamp(seven-day TVL change, −25%, +25%) × 1.5 / 100. An unreported change counts as 0. <strong>Vintage.</strong> 0.8 + 0.4 × min(days tracked, 1460) / 1460; a protocol with no listing date takes the neutral 0.95. A launch is worth more when the protocol has already run for years with no token recorded.</p>
+      <p><strong>The band</strong> beside each value runs the same formula at the group's shrunk 25th and 75th percentile ratios. It is the spread of what comparable launches actually captured — some launches price at a tenth of their TVL, a few at several times it — not a confidence interval.</p>
+      <p><strong>Conviction tiers.</strong> The board also grades each protocol's record, not its value: <strong>Proven scale</strong> — at least $100M of TVL and at least a year tracked with no token; <strong>Building</strong> — at least $25M and at least six months; <strong>Early</strong> — everything else, including any protocol whose age the record omits. The tier filters and sorts nothing by itself; it is the at-a-glance answer to "how much record stands behind this rank?"</p>
+      <p id="worked"></p>
+      <h2>Where the opportunity sits, by group</h2>
+      <div class="tablewrap">
+        <table id="opptable">
+          <thead><tr><th>Group</th><th class="num">Ranked</th><th class="num">Their TVL</th><th class="num">Aggregate implied</th><th>Richest single launch</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <h2>Group ratios, from the snapshot itself</h2>
+      <div class="tablewrap">
+        <table id="grouptable">
+          <thead><tr><th>Group</th><th class="num">Tokenised comparables</th><th class="num">25th pct</th><th class="num">Median ratio</th><th class="num">75th pct</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <h2>What the board does not claim</h2>
+      <p>It says a protocol <em>records</em> no token; a token DefiLlama does not track would not appear. It never treats a value as a price: every figure is TVL, a ratio read off the snapshot's own launches, or the product of the two, and each row's detail view shows its workings, its comparable launches and its risks. Farm plans are generated from each protocol's own record — its product, its first chain's fees, its TVL's capital tier and its age's hold window — and each step states its cost and its time.</p>
+    </div>
+  </section>
+</main>
+
+<div id="scrim" hidden></div>
+<aside id="drawer" hidden aria-label="Protocol detail"></aside>
+
+<script src="../data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
