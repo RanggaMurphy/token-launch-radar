@@ -267,24 +267,34 @@ const pctile = (sorted, p) => {
   return sorted[lo] + (sorted[Math.min(lo + 1, sorted.length - 1)] - sorted[lo]) * (i - lo);
 };
 
-/** The scatter: the comparables' real market caps against TVL on log axes, the median comparable
- *  ratio drawn as a line inside its 25th–75th percentile band, and the board's implied values
- *  over the same axes — the model, seen against the evidence it is read from. */
-function renderScatter() {
+/** The scatter's shared inputs, computed once from the shipped data: the comparables, their
+ *  clipped ratios' median and quartiles, and the log ranges of both axes. The Method tab's
+ *  full chart and the detail view's compact chart draw the same picture from these numbers. */
+function scatterStats() {
   const comps = comparablePoints();
   const ratios = comps
     .map((c) => Math.min(R.model.ratio_clip_high, Math.max(R.model.ratio_clip_low, c.mcap_usd / c.tvl_usd)))
     .sort((a, b) => a - b);
-  const med = pctile(ratios, 0.5);
-  const p25 = pctile(ratios, 0.25);
-  const p75 = pctile(ratios, 0.75);
-  const W = 660, H = 318, L = 64, B = 30, T = 10, Rt = 12;
   const xs = [...comps.map((c) => c.tvl_usd), ...rows.map((r) => r.tvl_usd)];
   const ys = [...comps.map((c) => c.mcap_usd), ...rows.map((r) => r.implied_value_usd)];
-  const x0 = Math.log10(Math.min(...xs));
-  const x1 = Math.log10(Math.max(...xs));
-  const y0 = Math.log10(Math.min(...ys));
-  const y1 = Math.log10(Math.max(...ys));
+  return {
+    comps,
+    med: pctile(ratios, 0.5),
+    p25: pctile(ratios, 0.25),
+    p75: pctile(ratios, 0.75),
+    x0: Math.log10(Math.min(...xs)),
+    x1: Math.log10(Math.max(...xs)),
+    y0: Math.log10(Math.min(...ys)),
+    y1: Math.log10(Math.max(...ys)),
+  };
+}
+
+/** The scatter: the comparables' real market caps against TVL on log axes, the median comparable
+ *  ratio drawn as a line inside its 25th–75th percentile band, and the board's implied values
+ *  over the same axes — the model, seen against the evidence it is read from. */
+function renderScatter() {
+  const { comps, med, p25, p75, x0, x1, y0, y1 } = scatterStats();
+  const W = 660, H = 318, L = 64, B = 30, T = 10, Rt = 12;
   const X = (v) => L + ((Math.log10(v) - x0) / (x1 - x0)) * (W - L - Rt);
   const Y = (v) => H - B - ((Math.log10(v) - y0) / (y1 - y0)) * (H - B - T);
   const Yc = (v) => Math.max(T, Math.min(H - B, Y(v)));
@@ -310,6 +320,45 @@ function renderScatter() {
   $('#chartnote').textContent =
     `${comps.length} tokenised comparables plotted — the largest by market cap and each group's richest examples, every one this page ships. ` +
     `Their median cap-to-TVL ratio, clipped as the model clips it, is ${ratioText(med)}; the board's ${rows.length} implied values sit over the same axes.`;
+}
+
+/** The detail view's compact chart: the Method tab's scatter at side-panel size — the same
+ *  comparables, the same board values, the same median line in its percentile band — with the
+ *  open protocol ringed and named, so selecting a row shows where it sits against the evidence. */
+function miniScatter(r) {
+  const { comps, med, p25, p75, x0, x1, y0, y1 } = scatterStats();
+  const W = 472, H = 272, L = 50, B = 24, T = 8, Rt = 8;
+  const X = (v) => L + ((Math.log10(v) - x0) / (x1 - x0)) * (W - L - Rt);
+  const Y = (v) => H - B - ((Math.log10(v) - y0) / (y1 - y0)) * (H - B - T);
+  const Yc = (v) => Math.max(T, Math.min(H - B, Y(v)));
+  let grid = '';
+  for (let e = Math.ceil(x0); e <= x1; e++)
+    grid += `<line class="grid" x1="${X(10 ** e)}" y1="${T}" x2="${X(10 ** e)}" y2="${H - B}"/><text class="axislab" x="${X(10 ** e) + 3}" y="${H - B + 15}">${money(10 ** e)}</text>`;
+  for (let e = Math.ceil(y0); e <= y1; e++)
+    grid += `<line class="grid" x1="${L}" y1="${Y(10 ** e)}" x2="${W - Rt}" y2="${Y(10 ** e)}"/><text class="axislab" x="${L - 4}" y="${Y(10 ** e) + 3}" text-anchor="end">${money(10 ** e)}</text>`;
+  const xa = 10 ** x0;
+  const xb = 10 ** x1;
+  const band =
+    `<polygon class="bandpoly" points="${X(xa)},${Yc(xa * p75)} ${X(xb)},${Yc(xb * p75)} ${X(xb)},${Yc(xb * p25)} ${X(xa)},${Yc(xa * p25)}"/>` +
+    `<line class="medline" x1="${X(xa)}" y1="${Yc(xa * med)}" x2="${X(xb)}" y2="${Yc(xb * med)}"/>`;
+  const dots = comps
+    .map((c) => `<circle class="compdot" cx="${X(c.tvl_usd).toFixed(1)}" cy="${Y(c.mcap_usd).toFixed(1)}" r="2.4"><title>${esc(c.name)} — TVL ${money(c.tvl_usd)}, cap ${money(c.mcap_usd)}</title></circle>`)
+    .join('');
+  const marks = rows
+    .filter((o) => o.slug !== r.slug)
+    .map((o) => `<circle class="boarddot" cx="${X(o.tvl_usd).toFixed(1)}" cy="${Y(o.implied_value_usd).toFixed(1)}" r="1.9"><title>${esc(o.name)} — TVL ${money(o.tvl_usd)}, implied ${money(o.implied_value_usd)}</title></circle>`)
+    .join('');
+  const sx = X(r.tvl_usd);
+  const sy = Y(r.implied_value_usd);
+  const anchorEnd = sx > W * 0.6;
+  const sel =
+    `<circle class="selhalo" cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="9"/>` +
+    `<circle class="seldot" cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="4"/>` +
+    `<text class="sellabel" x="${(anchorEnd ? sx - 12 : sx + 12).toFixed(1)}" y="${(sy < 34 ? sy + 20 : sy - 13).toFixed(1)}" text-anchor="${anchorEnd ? 'end' : 'start'}">${esc(r.name)}</text>`;
+  return (
+    `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Value against TVL, with ${esc(r.name)} highlighted">${grid}${band}${dots}${marks}${sel}` +
+    `<text class="axistitle" x="${L}" y="${H - 2}">TVL →</text><text class="axistitle" x="2" y="${T + 8}">value →</text></svg>`
+  );
 }
 
 // ------------------------------------------------------------ detail view
@@ -367,6 +416,9 @@ function openDetail(slug) {
     `<div class="dband"><span class="range" style="left:${logPos(r.implied_low_usd).toFixed(1)}%;width:${Math.max(1.5, logPos(r.implied_high_usd) - logPos(r.implied_low_usd)).toFixed(1)}%"></span>` +
     `<span class="dot" style="left:${logPos(r.implied_value_usd).toFixed(1)}%"></span></div>` +
     `<div class="dbandlab"><span>band low ${money(r.implied_low_usd)}</span><span>implied ${money(r.implied_value_usd)}</span><span>band high ${money(r.implied_high_usd)}</span></div>` +
+    `<h3>Where it sits — value against TVL</h3>` +
+    `<div class="minichart">${miniScatter(r)}</div>` +
+    `<p class="minicap">The ringed point is ${esc(r.name)} — TVL ${money(r.tvl_usd)}, implied ${money(r.implied_value_usd)}. Blue points are the tokenised comparables at their real market caps, green the board's implied values; the dashed line is the comparables' median ratio inside its 25th–75th percentile band. The full-size chart is on the Method tab.</p>` +
     `<h3>Why it ranks here</h3><p>${esc(whyText(r))}</p>` +
     `<h3>The workings</h3><table class="calc">` +
     `<tr><td>TVL in the snapshot</td><td>${moneyFull(r.tvl_usd)}</td></tr>` +
@@ -533,6 +585,8 @@ function show(view) {
 
 function init() {
   readHash();
+  // The full chart lives on the Method tab now: a #chart link lands there, on the panel.
+  if (state.chart) state.view = 'method';
   renderMeta();
   renderFormula();
   renderScatter();
